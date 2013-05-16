@@ -1,7 +1,7 @@
 {
   "name": "multilevel-reconnected",
   "version": "0.0.0",
-  "description": "multilevel-reconnected ----------------------",
+  "description": "this is a reconnecting and stream resuming multilevel client wrapper.",
   "main": "index.js",
   "scripts": {
     "test": "tap test/*.js"
