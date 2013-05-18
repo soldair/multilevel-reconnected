@@ -26,6 +26,8 @@
     "through": "~2.3.4"
   },
   "devDependencies": {
-    "tap": "~0.4.3"
+    "tap": "~0.4.3",
+    "levelup": "~0.8.0",
+    "memdown": "~0.2.0"
   }
 }

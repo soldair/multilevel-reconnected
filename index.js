@@ -37,8 +37,10 @@ module.exports = function(options){
   // create reconnect and first multilevel client
   var client = multilevel.client();
   var recon = reconnect(options.reconnect,function(stream){
+    
     client = multilevel.client();
     stream.pipe(client).pipe(stream);
+
   }).connect(options);
 
   // handle connected property
@@ -56,6 +58,7 @@ module.exports = function(options){
       return client.isOpen();
     },
     close:function(){
+      console.log('CALLED DISCONNECT');
       recon.disconnect();
     }
   };
@@ -86,82 +89,90 @@ module.exports = function(options){
     'createReadStream'
   ].forEach(function(m){
     o[m] = whenConnected(function(){
-
-      var args = [].slice.call(arguments);
       if(streamResume) {
+        // resumable streams always need key. i could just not support resume for value streams but i kinda want them to work correctly.
+        return client[m === 'createValueSream'?'createReadStream':m].apply(client,arguments);
+      }
+      return client[m].apply(client,arguments);
+    },streamopts);
 
-        var t;
-        if(args[args.length-1] && args[args.length-1][secretProperty]) {
-          t = args.pop();
-        } else {
-          t = through(function(data){
+    if(streamResume) {
+      var getStream = o[m];
+      o[m] = function(){
 
-            if(m === 'createKeyStream') {
-              t.lastKey = data;
-            } else {
-              t.lastkey = data.key;
-            }
+        var args = Array.prototype.slice.call(arguments);
+        var s = getStream.apply(this,arguments);
 
-            if(m === 'createValueStream') {
-              data = data.value;
-            }
-            
-            this.queue(data);
-          });
-          t.resume = 0;
-          t[secretProperty] = 1;
-        }
+        var lastKey, resumes = 0;
 
-        var s = client[m === 'createValueSream'?'createReadStream':m].apply(client,args);
+        var t = through(function(data){
+          if(m === 'createKeyStream') {
+            lastKey = data;
+          } else {
+            lastkey = data.key;
+          }
+
+          if(m === 'createValueStream') {
+            data = data.value;
+          }
+          
+          this.queue(data);
+        });
         
-        s.pipe(t,{end:false});
+        pipeReconnectingStream(s,t);         
 
-        var resuming = false;
-        s.on('error',function(e){
-          if(e && e.code === 'E_DISCONNECT'){
-            // check resume count
-            if(t.resume < streamResume) {
-              t.resume++;
+        return t;
+
+        function pipeReconnectingStream(s,t){
+          s.pipe(t,{end:false});
+          var piped = true;
+          var resuming = false;
+          s.on('error',function(e){
+
+            if(e && e.code === 'E_DISCONNECT' && resumes < streamResume) {
+              console.log('>> trying to resume!');
+
+              resumes++;
               resuming = true;
 
               // add stream to args.
-              args.push(t);
-              if(args[0]){ 
+              if(args[0]){
+                if(!lastKey) lastKey = ''; 
                 if(args[0].reverse) {
-                  args[0].end = t.lastKey+'\xff';// start from exactly before the last key.
+                  args[0].end = lastKey+'\xff';// start from exactly before the last key.
                 } else {
-                  args[0].start = t.lastKey+'\x00';
+                  args[0].start = lastKey+'\x00';
                 }
               } else {
                 args[0] = {start:lastKey+'\x00'};// start from exactky after the last key.
               }
 
+              piped = false;
+              
               // change range query to start at lastKey
               // ! make sure doesnt include start key in output.
-              o[m].apply(o,args);
+              console.log('ahhhhhhhhh',args);
+              console.log('--------------------');
+
+
+              pipeReconnectingStream(getStream.apply(o,args),t);
               // this returns the same stream object that we passed as the last argument.
+              return;
             }
-          }
 
-          t.emit('error',e);
+            t.emit('error',e);
+          });
 
-        });
+          s.on('end',function(){
+            // cleanup last key tracking.
+            if(piped) t.emit('end');
+          });
+        }
 
-        s.on('end',function(){
-          // cleanup last key tracking.
-          if(!resuming) t.emit('end');
-        });
-        return t;
-
-      }
-
-      return client[m].apply(client,arguments);
-
-    },streamopts);
-
+      };
+    }
   });
 
   // todo sublevel/createLiveStream and other madness im too newb to know about yet.
-
   return o;
 }
