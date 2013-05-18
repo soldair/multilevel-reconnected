@@ -8,7 +8,7 @@ var net = require('net')
 , factory = function (location) { return new MemDOWN(location) }
 
 
-test("test can resume on",function(t){
+test("test can resume stream after server disconnect+reconnect",function(t){
 
   var db = levelup('./db', { db: factory });
   var server, address, mdb;
@@ -32,17 +32,18 @@ test("test can resume on",function(t){
 
       stream.on('data',function(data){
 
-        console.log('data',data);
-
         arr.push(data);
         if(arr.length === 1){
           // set server to close.
           server.close(function(){
+
             // re create server. client should reconnect and resume streaming.
             server = makeServer(function(){
-              console.log('server listening again');
+              t.ok(arr.length < 5,'shoudld not have 5 items yet or im not testing reconnect');
             });
+
           });
+
           //destroy multilevel connection from the server's side
           server.con.destroy();
         }
@@ -51,12 +52,8 @@ test("test can resume on",function(t){
 
       stream.on('end',function(){
 
-        console.log('end!');
-
         db.close();
         server.close();
-
-        console.log(arr);
 
         t.equals(arr.length,5,'should have all 5 data events even though server crashed in the middle');
         t.end();
@@ -69,17 +66,10 @@ test("test can resume on",function(t){
   function makeServer(cb){
     var server;
     server = net.createServer(function(con){
-      var emit = con.emit;
-      con.emit = function(){
-        console.log('con: ',arguments);
-        emit.apply(this,arguments);
-      }
-
       mdb = multilevel.server(db);
       con.pipe(mdb).pipe(con);
       server.con = con;
     }).listen(address?address.port:0,function(){
-      console.log(arguments);
       address = this.address();
       if(cb) cb();
     });

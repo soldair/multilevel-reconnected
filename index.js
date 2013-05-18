@@ -9,6 +9,7 @@ module.exports = function(options){
   var secretProperty = Math.random()+''+Date.now();
 
   var connectCb;
+
   // handle net style options.
   if(typeof options === 'number') {
 
@@ -28,20 +29,25 @@ module.exports = function(options){
       connectCb = arguments[2];
     }
   }
-
+ 
+ 
   options = options||{};
-  if(options.port === undefined){
-    throw new Error("you must specify a port for now. you probably dont want a domain socket named 'undefined'");
-  }
-  
-  // create reconnect and first multilevel client
-  var client = multilevel.client();
-  var recon = reconnect(options.reconnect,function(stream){
-    
-    client = multilevel.client();
-    stream.pipe(client).pipe(stream);
 
-  }).connect(options);
+  var client = multilevel.client();
+
+  if(!options.reconnect) {
+    // create reconnect and first multilevel client
+    var recon = reconnect(options.reconnect,function(stream){      
+      client = multilevel.client();
+      stream.pipe(client).pipe(stream);
+    }).connect(options);
+
+  } else {
+    options.reconnect.on('connect',function(){
+      client = multilevel.client();
+      stream.pipe(client).pipe(stream);
+    });
+  }
 
   // handle connected property
   var connected = false;
@@ -58,7 +64,6 @@ module.exports = function(options){
       return client.isOpen();
     },
     close:function(){
-      console.log('CALLED DISCONNECT');
       recon.disconnect();
     }
   };
@@ -106,10 +111,11 @@ module.exports = function(options){
         var lastKey, resumes = 0;
 
         var t = through(function(data){
+
           if(m === 'createKeyStream') {
             lastKey = data;
           } else {
-            lastkey = data.key;
+            lastKey = data.key;
           }
 
           if(m === 'createValueStream') {
@@ -130,12 +136,13 @@ module.exports = function(options){
           s.on('error',function(e){
 
             if(e && e.code === 'E_DISCONNECT' && resumes < streamResume) {
-              console.log('>> trying to resume!');
 
               resumes++;
               resuming = true;
 
               // add stream to args.
+              // change range query to start at lastKey
+              // make sure doesnt include start key in output.
               if(args[0]){
                 if(!lastKey) lastKey = ''; 
                 if(args[0].reverse) {
@@ -149,11 +156,6 @@ module.exports = function(options){
 
               piped = false;
               
-              // change range query to start at lastKey
-              // ! make sure doesnt include start key in output.
-              console.log('ahhhhhhhhh',args);
-              console.log('--------------------');
-
 
               pipeReconnectingStream(getStream.apply(o,args),t);
               // this returns the same stream object that we passed as the last argument.
