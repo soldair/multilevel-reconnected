@@ -6,8 +6,6 @@ var through = require('through');
 
 module.exports = function(options){
 
-  var secretProperty = Math.random()+''+Date.now();
-
   var connectCb;
 
   // handle net style options.

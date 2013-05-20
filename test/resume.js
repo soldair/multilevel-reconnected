@@ -31,7 +31,6 @@ test("test can resume stream after server disconnect+reconnect",function(t){
       var stream = db.createReadStream();
 
       stream.on('data',function(data){
-
         arr.push(data);
         if(arr.length === 1){
           // set server to close.
@@ -47,7 +46,6 @@ test("test can resume stream after server disconnect+reconnect",function(t){
           //destroy multilevel connection from the server's side
           server.con.destroy();
         }
-
       });
 
       stream.on('end',function(){
