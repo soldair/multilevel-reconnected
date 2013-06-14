@@ -1,6 +1,6 @@
 {
   "name": "multilevel-reconnected",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "this is a reconnecting and stream resuming multilevel client wrapper.",
   "main": "index.js",
   "scripts": {

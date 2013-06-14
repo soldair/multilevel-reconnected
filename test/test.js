@@ -47,12 +47,22 @@ test("test can db stuff",function(t){
 
       s.on('end',function(){
 
-        db.close();
-        server.close();
-
-        t.ok(!error,'shoudl not have error');
+        t.ok(!error,'should not have error');
         t.equals(arr.length,5,'should have had 5 data events');
-        t.end();
+
+        var values = [];
+
+        db.createValueStream().on('data',function(v){
+          values.push(v);
+        }).on('end',function(){
+          t.equals(values.length,arr.length,'should have correct number of values');
+          t.equals(values[values.length-1],arr[arr.length-1].value,'value should be correct from value stream');
+
+          db.close();
+          server.close();
+          t.end();
+
+        });
 
       });
     });
