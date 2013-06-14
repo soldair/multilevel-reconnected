@@ -55,6 +55,7 @@ test("test can db stuff",function(t){
         db.createValueStream().on('data',function(v){
           values.push(v);
         }).on('end',function(){
+
           t.equals(values.length,arr.length,'should have correct number of values');
           t.equals(values[values.length-1],arr[arr.length-1].value,'value should be correct from value stream');
 

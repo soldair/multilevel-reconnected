@@ -94,7 +94,7 @@ module.exports = function(options){
     o[m] = whenConnected(function(){
       if(streamResume) {
         // resumable streams always need key. i could just not support resume for value streams but i kinda want them to work correctly.
-        return client[m === 'createValueSream'?'createReadStream':m].apply(client,arguments);
+        return client[m === 'createValueStream'?'createReadStream':m].apply(client,arguments);
       }
       return client[m].apply(client,arguments);
     },streamopts);
